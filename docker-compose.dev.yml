@@ -1,0 +1,25 @@
+version: '3.8'
+
+# Development setup - Only Redis for local development
+# Run your backend manually with: npm run dev
+
+services:
+  # Redis service for local development
+  redis:
+    image: redis:7-alpine
+    container_name: chalice-redis-dev
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-dev-data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  redis-dev-data:
+    driver: local

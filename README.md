@@ -35,9 +35,10 @@ Each round begins with a known number of poisoned and safe goblets. Your turn, y
 | ------------- | -------------------------------- |
 | Frontend      | React, TypeScript, Tailwind CSS  |
 | Game Logic    | Custom state management & engine |
-| Realtime Comm | WebSockets                       |
+| Realtime Comm | WebSockets (Socket.IO)           |
 | Voice Chat    | WebRTC (peer-to-peer audio)      |
 | Backend       | Node.js, Express                 |
+| State Store   | Redis (distributed sessions)     |
 | Onboarding    | Shepherd.js                      |
 | Deployment    | Vercel / Render / Custom server  |
 
@@ -68,7 +69,36 @@ cd ../backend
 npm install
 ```
 
-### 3. Start the Development Server
+### 3. Start Redis (Required)
+
+The backend now uses Redis for distributed state management. Start Redis using Docker:
+
+```bash
+docker compose -f docker-compose.dev.yml up -d
+```
+
+**Alternative (without Docker):**
+Install Redis locally:
+- macOS: `brew install redis && brew services start redis`
+- Ubuntu: `sudo apt install redis-server && sudo systemctl start redis`
+- Windows: Use [Windows Subsystem for Linux (WSL)](https://redis.io/docs/getting-started/installation/install-redis-on-windows/)
+
+Verify Redis is running:
+```bash
+redis-cli ping  # Should return "PONG"
+```
+
+### 4. Environment Variables
+
+Copy the example environment file and configure:
+
+```bash
+cd backend
+cp .env.example .env
+# Edit .env if needed (defaults should work for local development)
+```
+
+### 5. Start the Development Server
 
 #### In separate terminals:
 

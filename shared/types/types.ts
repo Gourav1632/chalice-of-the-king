@@ -39,6 +39,15 @@
     socketId: string;
   }
 
+  export type PlayerConnectionStatus = 'connected' | 'disconnected' | 'reconnecting' | 'abandoned';
+
+  export interface PlayerConnectionState {
+    playerId: string;
+    socketId: string;
+    status: PlayerConnectionStatus;
+    disconnectedAt?: number;
+  }
+
   export type Score = {
     playerId: string;
     name: string;
@@ -77,6 +86,7 @@
       password: string,
       gameState: GameState | null;
       voiceChatEnabled: boolean;
+      connectionStates?: PlayerConnectionState[];
   }
 
   export interface PublicRoomData {

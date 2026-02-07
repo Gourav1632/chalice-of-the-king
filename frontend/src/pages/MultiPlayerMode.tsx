@@ -1,13 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
 import EventArea from '../components/GameUI/EventArea';
 import PlayingArea from '../components/GameUI/PlayingArea';
 import type { ActionMessage, ItemType, GameState, RoomData } from "../../../shared/types/types";
-import { emitPlayerAction, gameReady, leaveRoom, onGameUpdate, onKicked } from "../utils/socket";
+import { emitPlayerAction, gameReady, leaveRoom, onGameUpdate, onKicked, onRoomUpdate } from "../utils/socket";
 import { useSocket } from "../contexts/SocketContext";
 import { useNavigationBlocker } from "../hooks/useNavigationBlocker";
 import ConfirmLeaveModal from "../components/GameUI/ConfirmLeaveModal";
 import GameOverScreen from "../components/GameUI/GameOverScreen";
 import { useNavigate } from "react-router-dom";
+import ReconnectingModal from "../components/ReconnectingModal";
+import { clearStoredRoomId } from "../utils/reconnection";
+import AppStateContext from "../contexts/AppStateContext";
 
 function MultiPlayerMode({room, myPlayerId}:{room: RoomData | null, myPlayerId: string | null}) {
   
@@ -19,18 +22,36 @@ function MultiPlayerMode({room, myPlayerId}:{room: RoomData | null, myPlayerId: 
   const [loading, setLoading] = useState<boolean>(false);
   const [showEventArea, setShowEventArea] = useState<boolean>(true);
   const [hasBeenKicked, setHasBeenKicked] = useState<boolean>(false);
-  const {socket} = useSocket();
+  const {socket, isReconnecting} = useSocket();
   const navigate = useNavigate();
+
+  const state = useContext(AppStateContext);
+  const { setRoomData } = state || {};
 
   const { isModalOpen, confirmLeave, cancelLeave } = useNavigationBlocker(
     {
     shouldBlock: () =>  true,
     onConfirm: () => {
       leaveRoom(socket, room?.id ?? "", myPlayerId ?? "");
+      clearStoredRoomId();
       navigate('/')
     }
   });  
 
+  // Listen for room updates (both for reconnection and active gameplay)
+  useEffect(() => {
+    if (!myPlayerId) return;
+
+    onRoomUpdate(socket, (updatedRoom) => {
+      if (setRoomData) {
+        setRoomData(updatedRoom);
+      }
+    });
+
+    return () => {
+      socket.off("room_update");
+    };
+  }, [myPlayerId, socket, setRoomData]);
 
 useEffect(() => {
   const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -41,9 +62,7 @@ useEffect(() => {
 
   const handleUnload = () => {
     // This only runs if user actually confirms (reloads or closes tab)
-    if (room && myPlayerId) {
-      leaveRoom(socket, room.id, myPlayerId);
-    }
+    return;
   };
 
   window.addEventListener("beforeunload", handleBeforeUnload);
@@ -94,6 +113,12 @@ useEffect(() => {
         return;
       }
     if (action.type === "announce" && action.result) {
+      // Skip showing disconnect-related announcements (they'll be shown on player image)
+      if (action.result.includes("Waiting")) {
+        setGame(gameState);
+        updateTurnState(gameState);
+        return;
+      }
 
       setLoading(true);
       setGameMessage(action.result);
@@ -113,6 +138,7 @@ useEffect(() => {
     onKicked(socket, ()=> {
       setGame(null);
       setHasBeenKicked(true);
+      clearStoredRoomId();
     })
 
   gameReady(socket,room.id);
@@ -121,6 +147,7 @@ useEffect(() => {
     socket.off("kicked");
     socket.off("game_update");
   };
+// eslint-disable-next-line react-hooks/exhaustive-deps
 }, [room?.id, myPlayerId]);
 
 
@@ -198,67 +225,75 @@ if (game?.gameState === "game_over") {
 
 if (!room || !myPlayerId || hasBeenKicked) {
   return (
-    <div className="flex flex-col items-center justify-center h-screen bg-black text-white font-medievalsharp text-center px-6">
-      <h1 className="text-4xl md:text-5xl font-bold mb-4 text-yellow-400">Oops!</h1>
-      <p className="text-xl md:text-2xl mb-6">
-        {hasBeenKicked ? `You have been kicked out by the host.` : `Looks like you've entered an area you weren't supposed to.`}
-      </p>
-      <p className="text-md md:text-lg text-gray-300 mb-10">
-        Please go back and join or create a new room to continue your journey.
-      </p>
-      <button
-        onClick={()=> navigate("/")}
-        className="px-6 py-3 bg-yellow-500 hover:bg-yellow-600 transition-colors rounded text-black font-bold text-lg"
-      >
-        Return Home
-      </button>
+    <>
+      <ReconnectingModal isOpen={isReconnecting} />
+      <div className="flex flex-col items-center justify-center h-screen bg-black text-white font-medievalsharp text-center px-6">
+        <h1 className="text-4xl md:text-5xl font-bold mb-4 text-yellow-400">Oops!</h1>
+        <p className="text-xl md:text-2xl mb-6">
+          {hasBeenKicked ? `You have been kicked out by the host.` : `Looks like you've entered an area you weren't supposed to.`}
+        </p>
+        <p className="text-md md:text-lg text-gray-300 mb-10">
+          Please go back and join or create a new room to continue your journey.
+        </p>
+        <button
+          onClick={()=> navigate("/")}
+          className="px-6 py-3 bg-yellow-500 hover:bg-yellow-600 transition-colors rounded text-black font-bold text-lg"
+        >
+          Return Home
+        </button>
 
-      <ConfirmLeaveModal
-        isOpen={isModalOpen}
-        onConfirm={confirmLeave}
-        onCancel={cancelLeave}
-      />
+        <ConfirmLeaveModal
+          isOpen={isModalOpen}
+          onConfirm={confirmLeave}
+          onCancel={cancelLeave}
+        />
 
-    </div>
+      </div>
+    </>
   );
 }
 
 
 if (loading) return (
-  <div
-    className="fixed p-4 inset-0 w-full h-full z-0 bg-cover bg-center flex items-center justify-center font-medievalsharp"
-    style={{ backgroundImage: "url('/game_ui/intro.webp')" }}
-  >
-    {/* Main parchment box */}
+  <>
+    <ReconnectingModal isOpen={isReconnecting} />
     <div
-      className="relative px-10 py-8 text-black text-center text-3xl md:text-4xl leading-relaxed font-medium shadow-xl max-w-4xl w-full border-[4px] border-[#c49b38] rounded-none"
-      style={{
-  backgroundColor: 'rgba(225, 201, 122, 0.7)', // slightly see-through
-  boxShadow: 'inset 0 0 25px rgba(0, 0, 0, 0.25), 0 4px 12px rgba(0, 0, 0, 0.35)'
-}}
-
+      className="fixed p-4 inset-0 w-full h-full z-0 bg-cover bg-center flex items-center justify-center font-medievalsharp"
+      style={{ backgroundImage: "url('/game_ui/intro.webp')" }}
     >
-      {/* Corner accents */}
-      <div className="absolute top-0 left-0 w-6 h-6 bg-[#c49b38]" />
-      <div className="absolute top-0 right-0 w-6 h-6 bg-[#c49b38]" />
-      <div className="absolute bottom-0 left-0 w-6 h-6 bg-[#c49b38]" />
-      <div className="absolute bottom-0 right-0 w-6 h-6 bg-[#c49b38]" />
+      {/* Main parchment box */}
+      <div
+        className="relative px-10 py-8 text-black text-center text-3xl md:text-4xl leading-relaxed font-medium shadow-xl max-w-4xl w-full border-[4px] border-[#c49b38] rounded-none"
+        style={{
+    backgroundColor: 'rgba(225, 201, 122, 0.7)', // slightly see-through
+    boxShadow: 'inset 0 0 25px rgba(0, 0, 0, 0.25), 0 4px 12px rgba(0, 0, 0, 0.35)'
+  }}
 
-      {/* Text Content */}
-      <p className="mb-4">
-        <span className="text-red-600 font-bold">Remember —</span> {gameMessage}
-      </p>
-      <p className="italic">
-        Choose wisely... <span className="text-red-700">I’d hate to see you die too soon.</span>
-      </p>
+      >
+        {/* Corner accents */}
+        <div className="absolute top-0 left-0 w-6 h-6 bg-[#c49b38]" />
+        <div className="absolute top-0 right-0 w-6 h-6 bg-[#c49b38]" />
+        <div className="absolute bottom-0 left-0 w-6 h-6 bg-[#c49b38]" />
+        <div className="absolute bottom-0 right-0 w-6 h-6 bg-[#c49b38]" />
+
+        {/* Text Content */}
+        <p className="mb-4">
+          <span className="text-red-600 font-bold">Remember —</span> {gameMessage}
+        </p>
+        <p className="italic">
+          Choose wisely... <span className="text-red-700">I’d hate to see you die too soon.</span>
+        </p>
+      </div>
     </div>
-  </div>
+  </>
 );
 
 
 
 return (
-    <div className="flex w-full h-screen bg-black text-white">
+  <>
+  <ReconnectingModal isOpen={isReconnecting} />
+  <div className="flex w-full h-screen bg-black text-white">
 
       <ConfirmLeaveModal
         isOpen={isModalOpen}
@@ -271,6 +306,7 @@ return (
   {game && game.players && myPlayerId &&
     <PlayingArea
       room={room}
+      connectionStates={room?.connectionStates}
       handleDrink={handleDrink}
       handleStealItem={handleStealItem}
       canStealItem={canStealItem}
@@ -303,6 +339,7 @@ return (
         {game && game.players && myPlayerId && 
           <PlayingArea
             room={room}
+            connectionStates={room?.connectionStates}
             handleDrink={handleDrink}
             handleStealItem={handleStealItem}
             canStealItem={canStealItem}
@@ -328,6 +365,7 @@ return (
         }
       </div>
     </div>
+    </>
   );
 }
 

@@ -14,7 +14,6 @@ import {
   kickPlayer,
   onKicked,
 } from "../utils/socket";
-import { v4 as uuidv4 } from "uuid";
 import type { PublicRoomData, RoomData } from "../../../shared/types/types";
 import { useSocket } from "../contexts/SocketContext";
 import { FaMicrophone, FaMicrophoneSlash, FaVolumeMute, FaVolumeUp } from "react-icons/fa";
@@ -23,6 +22,12 @@ import ConfirmLeaveModal from "../components/GameUI/ConfirmLeaveModal";
 import { useVoiceChatContext } from "../contexts/VoiceChatContext";
 import { FaUserSlash } from "react-icons/fa6";
 import { useSound } from "../hooks/sound";
+import ReconnectingModal from "../components/ReconnectingModal";
+import {
+  clearStoredRoomId,
+  getOrCreatePlayerId,
+  setStoredRoomId,
+} from "../utils/reconnection";
 
 
 
@@ -48,7 +53,7 @@ const MultiplayerLobby = ({
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [hasBeenKicked, setHasBeenKicked] = useState(false);
   const navigate = useNavigate();
-  const {socket} = useSocket();
+  const {socket, isReconnecting} = useSocket();
   const {muteMap, setUserMuted} = useVoiceChatContext();
   const playSelectSound = useSound("/sounds/select.wav");
 
@@ -61,16 +66,13 @@ const MultiplayerLobby = ({
         setRoom(null);
         setMyPlayerId(null);
         setMode("default");
+        clearStoredRoomId();
       }
     }});
 
     useEffect(() => {
       const handleBeforeUnload = (e: BeforeUnloadEvent) => {
         if (room && playerId && shouldBlockRef.current) {
-          leaveRoom(socket, room.id, playerId);
-          setRoom(null);
-          setMyPlayerId(null);
-          setMode("default");
           e.preventDefault();
           e.returnValue = "";
         }
@@ -88,6 +90,7 @@ const MultiplayerLobby = ({
       setVoiceChatEnabled(roomData.voiceChatEnabled)
       setRoom(roomData);
       setRoomData(roomData);
+      setStoredRoomId(roomData.id);
       setMode("create");
     });
 
@@ -96,6 +99,11 @@ const MultiplayerLobby = ({
       setRoom(roomData);
       setRoomData(roomData);
       setMode(roomData ? "create" : "default");
+      if (roomData?.id) {
+        setStoredRoomId(roomData.id);
+      } else {
+        clearStoredRoomId();
+      }
     });
 
     onKicked(socket, ()=> {
@@ -103,6 +111,7 @@ const MultiplayerLobby = ({
       setRoom(null);
       setVoiceChatEnabled(false);
       setMyPlayerId(null);
+      clearStoredRoomId();
       setHasBeenKicked(true);
       setTimeout(()=>{
         setHasBeenKicked(false);
@@ -128,6 +137,7 @@ const MultiplayerLobby = ({
       socket.off("room_update");
       socket.off("public_rooms");
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function handleCreateRoom() {
@@ -135,7 +145,8 @@ const MultiplayerLobby = ({
       setErrorMessage(isPrivate ? "Please enter name and password" : "Please enter name");
       return;
     }
-    const host = { id: uuidv4(), name };
+    const playerId = getOrCreatePlayerId();
+    const host = { id: playerId, name };
     setPlayerId(host.id);
     setMyPlayerId(host.id);
     createRoom(socket, host, maxPlayers, isPrivate, password, voiceChatEnabled);
@@ -151,7 +162,8 @@ const MultiplayerLobby = ({
       setErrorMessage(isPrivate ? "Please enter name and password" : "Please enter name");
       return;
     }
-    const player = { id: uuidv4(), name };
+    const playerId = getOrCreatePlayerId();
+    const player = { id: playerId, name };
     setPlayerId(player.id);
     setMyPlayerId(player.id);
     joinRoom(socket,roomId, player, password);
@@ -163,6 +175,7 @@ const MultiplayerLobby = ({
     setRoom(null);
     setRoomId("");
     setMode("default");
+    clearStoredRoomId();
   }
 
   function handleKick(targetPlayerId : string) {
@@ -175,6 +188,8 @@ const MultiplayerLobby = ({
 
   return (
     <div className="relative flex items-center justify-center w-full min-h-screen overflow-auto">
+
+      <ReconnectingModal isOpen={isReconnecting} />
 
       <ConfirmLeaveModal
         isOpen={isModalOpen}
@@ -246,12 +261,22 @@ const MultiplayerLobby = ({
                   <ul className="space-y-2">
                     {room.players.map((player) =>{
                       const isMuted = muteMap[player.socketId] ?? false;
+                      const connectionStatus = room.connectionStates?.find(
+                        (state) => state.playerId === player.id
+                      )?.status;
+                      const isReconnecting =
+                        connectionStatus && connectionStatus !== "connected";
                       return (
                      <li key={player.id} className="flex justify-between items-center">
                       <div className="flex items-center gap-2">
                         <span className={`${player.id === playerId ? 'text-green-400' : ''}`}>
                           {player.name}
                         </span>
+                        {isReconnecting && (
+                          <span className="text-xs font-semibold text-amber-400">
+                            (reconnecting)
+                          </span>
+                        )}
                         {player.id === room.host.id && (
                           <span className="text-yellow-400 text-xs font-semibold">(host)</span>
                         )}

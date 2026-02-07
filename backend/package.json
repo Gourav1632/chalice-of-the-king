@@ -6,21 +6,31 @@
   "author": "",
   "type": "commonjs",
   "main": "index.js",
-"scripts": {
-  "start": "node dist/backend/src/index.js",
-  "dev": "ts-node-dev --project ./tsconfig.json src/index.ts",
-  "build": "tsc --project ./tsconfig.json",
-  "test": "echo \"Error: no test specified\" && exit 1"
-},
+  "scripts": {
+    "start": "node dist/backend/src/index.js",
+    "dev": "ts-node-dev --project ./tsconfig.json src/index.ts",
+    "build": "tsc --project ./tsconfig.json",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
+  },
   "dependencies": {
+    "@socket.io/redis-adapter": "^8.3.0",
     "dotenv": "^17.2.0",
     "express": "^5.1.0",
-    "socket.io": "^4.8.1"
+    "redis": "^5.10.0",
+    "socket.io": "^4.8.1",
+    "winston": "^3.19.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@jest/globals": "^30.2.0",
     "@types/express": "^5.0.3",
+    "@types/jest": "^30.0.0",
     "@types/node": "^24.0.10",
     "@types/socket.io": "^3.0.1",
+    "jest": "^30.2.0",
+    "ts-jest": "^29.4.6",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.8.3"

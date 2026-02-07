@@ -68,11 +68,13 @@ function SinglePlayerMode() {
         handleAITurn(game);
       })
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   },[game?.activePlayerIndex]);
 
   useEffect(() => {
   if (!game || game.activePlayerIndex !== 0) return;
   handlePlayerTurn(game);
+// eslint-disable-next-line react-hooks/exhaustive-deps
 }, [game?.players[0].statusEffects?.join(",")]);
 
 

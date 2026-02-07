@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  # Redis service for session storage and Socket.IO adapter
+  redis:
+    image: redis:7-alpine
+    container_name: chalice-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - chalice-network
+
+  # Backend service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: chalice-backend
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - REDIS_URL=redis://redis:6379
+      - FRONTEND_URL=http://localhost:5173
+      - LOG_LEVEL=info
+      - RATE_LIMIT_WINDOW_MS=1000
+      - RATE_LIMIT_MAX_REQUESTS=5
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend/logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - chalice-network
+
+volumes:
+  redis-data:
+    driver: local
+
+networks:
+  chalice-network:
+    driver: bridge

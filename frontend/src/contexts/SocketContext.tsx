@@ -6,6 +6,7 @@ import { Socket } from "socket.io-client";
 export type SocketContextType = {
   socket: Socket;
   socketId: string | null;
+  isReconnecting: boolean;
 };
 
 export const SocketContext = createContext<SocketContextType | null>(null);

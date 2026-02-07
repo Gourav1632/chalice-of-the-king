@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ItemSelector from "./ItemSelector";
-import type { Contestant, ItemType, RoomData, Score } from "../../../../shared/types/types";
+import type { Contestant, ItemType, RoomData, Score, PlayerConnectionState } from "../../../../shared/types/types";
 import Typewriter from 'typewriter-effect';
 import ItemHelp from "./ItemHelp";
 import MusicSelector from "./MusicSelector";
@@ -16,13 +16,15 @@ import KickPlayerSettings from "./KickPlayerSettings";
 
 
 
-const PlayingArea = ({room,canStealItem,canDrink,myPlayerId, players, handleUseItem, handleStealItem, handleDrink, currentPlayerId, scoreChart }: {room?: RoomData, canStealItem:boolean, canDrink:boolean, myPlayerId:string, players: Contestant[], handleUseItem: (item: ItemType, targetId: string) => void; handleStealItem:(item:ItemType, targetId:string) => void; handleDrink:(targetId:string)=> void; currentPlayerId : string; scoreChart : Score[]}) => {
+const PlayingArea = ({room, connectionStates, canStealItem,canDrink,myPlayerId, players, handleUseItem, handleStealItem, handleDrink, currentPlayerId, scoreChart }: {room?: RoomData, connectionStates?: PlayerConnectionState[], canStealItem:boolean, canDrink:boolean, myPlayerId:string, players: Contestant[], handleUseItem: (item: ItemType, targetId: string) => void; handleStealItem:(item:ItemType, targetId:string) => void; handleDrink:(targetId:string)=> void; currentPlayerId : string; scoreChart : Score[]}) => {
   const [pendingTargetSelect, setPendingTargetSelect] = useState<boolean>(false);
   const [itemSelected,setItemSelected] = useState<ItemType | null> (null);
   const [showHelp, setShowHelp] = useState(false);
   const playerCount = players.length;
   const [showMusicPopup, setShowMusicPopup] = useState(false);
   const [showScoreboard, setShowScoreboard] = useState(false);
+  
+  console.log("[PlayingArea] connectionStates:", connectionStates);
   const [showVoiceSettings, setShowVoiceSettings] = useState(false);
   const [showKickPlayerSettings,setShowKickPlayerSettings] = useState(false);
 
@@ -165,14 +167,14 @@ const PlayingArea = ({room,canStealItem,canDrink,myPlayerId, players, handleUseI
         } flex flex-col items-center space-y-4  `}
       >
         <div className="flex w-[500px] lg:w-[575px] justify-between   ">
-          <PlayerImage currentPlayerId={currentPlayerId} canDrink={canDrink} handleStealItem={handleStealItem} canStealItem={canStealItem} myPlayerId={myPlayerId} pendingTargetSelect={pendingTargetSelect} index={1} player={players[0]} onClick={handlePlayerClick} />
-          {playerCount >= 2 && <PlayerImage currentPlayerId={currentPlayerId} canDrink={canDrink} handleStealItem={handleStealItem}  canStealItem={canStealItem} myPlayerId={myPlayerId}  pendingTargetSelect={pendingTargetSelect} index={2} player={players[1]} onClick={handlePlayerClick} />}
+          <PlayerImage currentPlayerId={currentPlayerId} connectionStates={connectionStates} canDrink={canDrink} handleStealItem={handleStealItem} canStealItem={canStealItem} myPlayerId={myPlayerId} pendingTargetSelect={pendingTargetSelect} index={1} player={players[0]} onClick={handlePlayerClick} />
+          {playerCount >= 2 && <PlayerImage currentPlayerId={currentPlayerId} connectionStates={connectionStates} canDrink={canDrink} handleStealItem={handleStealItem}  canStealItem={canStealItem} myPlayerId={myPlayerId}  pendingTargetSelect={pendingTargetSelect} index={2} player={players[1]} onClick={handlePlayerClick} />}
         </div>
         {playerCount > 2 && (
           <div className="flex w-[500px] lg:w-[575px] justify-between   ">
-            <PlayerImage currentPlayerId={currentPlayerId} canDrink={canDrink} handleStealItem={handleStealItem}  canStealItem={canStealItem} myPlayerId={myPlayerId}  pendingTargetSelect={pendingTargetSelect} index={3} player={players[2]} onClick={handlePlayerClick} />
+            <PlayerImage currentPlayerId={currentPlayerId} connectionStates={connectionStates} canDrink={canDrink} handleStealItem={handleStealItem}  canStealItem={canStealItem} myPlayerId={myPlayerId}  pendingTargetSelect={pendingTargetSelect} index={3} player={players[2]} onClick={handlePlayerClick} />
             {playerCount === 4 && (
-              <PlayerImage currentPlayerId={currentPlayerId} canDrink={canDrink}  handleStealItem={handleStealItem} canStealItem={canStealItem} myPlayerId={myPlayerId}  pendingTargetSelect={pendingTargetSelect} index={4} player={players[3]} onClick={handlePlayerClick} />
+              <PlayerImage currentPlayerId={currentPlayerId} connectionStates={connectionStates} canDrink={canDrink}  handleStealItem={handleStealItem} canStealItem={canStealItem} myPlayerId={myPlayerId}  pendingTargetSelect={pendingTargetSelect} index={4} player={players[3]} onClick={handlePlayerClick} />
             )}
           </div>
         )}
@@ -202,7 +204,8 @@ const PlayerImage = ({
   canStealItem,
   canDrink,
   handleStealItem,
-  currentPlayerId
+  currentPlayerId,
+  connectionStates
 }: {
   index: number;
   player: Contestant;
@@ -213,7 +216,42 @@ const PlayerImage = ({
   canDrink: boolean;
   handleStealItem: (item: ItemType, targetId: string) => void;
   currentPlayerId: string;
-}) => (
+  connectionStates?: PlayerConnectionState[];
+}) => {
+  const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
+  
+  const connectionState = connectionStates?.find(cs => cs.playerId === player.id);
+  const isDisconnected = connectionState?.status === 'disconnected';
+
+  useEffect(() => {
+    console.log(`[PlayerImage ${player.id}] connectionState:`, connectionState);
+    console.log(`[PlayerImage ${player.id}] isDisconnected:`, isDisconnected);
+    
+    if (!isDisconnected || !connectionState?.disconnectedAt) {
+      setTimeRemaining(null);
+      return;
+    }
+
+    // Set initial time immediately
+    const elapsed = Math.floor((Date.now() - connectionState.disconnectedAt) / 1000);
+    const remaining = Math.max(0, 60 - elapsed);
+    setTimeRemaining(remaining);
+    console.log(`[PlayerImage ${player.id}] Initial time remaining: ${remaining}s`);
+
+    const timer = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - connectionState.disconnectedAt!) / 1000);
+      const remaining = Math.max(0, 60 - elapsed);
+      setTimeRemaining(remaining);
+
+      if (remaining === 0) {
+        clearInterval(timer);
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isDisconnected, connectionState, player.id]);
+
+  return (
   <div
     className={`relative flex-shrink-0 items-center gap-0 ${
       index % 2 === 1 ? 'flex' : 'flex flex-row-reverse'
@@ -252,6 +290,14 @@ const PlayerImage = ({
           index === 1 || index === 3 ? 'scale-x-[-1]' : ''
         } ${!canDrink ? 'grayscale opacity-60' : ''}`}
       />
+
+      {/* Disconnect Badge and Timer */}
+      {isDisconnected && (
+        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 z-40 bg-red-600 text-white px-3 py-1 rounded text-sm font-bold flex flex-col items-center gap-1 whitespace-nowrap">
+          <div>Disconnected</div>
+          <div className="text-yellow-300 font-semibold">{timeRemaining ?? '60'}s</div>
+        </div>
+      )}
     </div>
 
     {/* Player UI panel */}
@@ -305,4 +351,5 @@ const PlayerImage = ({
 
     </div>
   </div>
-);
+  );
+};

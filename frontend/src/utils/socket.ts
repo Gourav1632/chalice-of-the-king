@@ -60,6 +60,14 @@ export const gameReady = (socket: Socket, roomId: string) => {
   socket.emit("game_ready", { roomId });
 };
 
+export const reconnectRoom = (
+  socket: Socket,
+  roomId: string,
+  playerId: string
+) => {
+  socket.emit("reconnect_room", { roomId, playerId });
+};
+
 
 // voice chat related emitters
 
@@ -140,6 +148,20 @@ export const onGameStarted = (
   socket.on("game_started", callback);
 };
 
+export const onReconnectSuccess = (
+  socket: Socket,
+  callback: (data: { roomId: string }) => void
+) => {
+  socket.on("reconnect_success", callback);
+};
+
+export const onReconnectFailed = (
+  socket: Socket,
+  callback: (data: { message: string }) => void
+) => {
+  socket.on("reconnect_failed", callback);
+};
+
 
 // voice chat related listeners
 
@@ -194,6 +216,8 @@ export const clearSocketListeners = (socket: Socket) => {
   socket.off("voice-candidate");
   socket.off("voice-user-joined");
   socket.off("leave-voice");
+  socket.off("reconnect_success");
+  socket.off("reconnect_failed");
 
 };
 
