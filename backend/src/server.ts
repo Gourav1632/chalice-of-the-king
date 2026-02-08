@@ -9,6 +9,7 @@ import { createErrorHandler } from './middleware/errorHandler';
 import logger from './utils/logger';
 import { validateEnv, getEnv } from './config/env';
 import { redisClient } from './database/redis';
+import { getSFUManager } from './webrtc';
 import dotenv from 'dotenv';
 
 dotenv.config(); // Load .env variables
@@ -27,6 +28,27 @@ async function startServer() {
     process.exit(1);
   }
 
+  // Initialize SFU Manager (Phase 4)
+  try {
+    const sfuManager = getSFUManager({
+      provider: env.SFU_PROVIDER as any,
+      roomTTL: env.SFU_ROOM_TTL,
+      providerConfig: {
+        livekit: {
+          url: env.LIVEKIT_URL,
+          apiKey: env.LIVEKIT_API_KEY,
+          apiSecret: env.LIVEKIT_API_SECRET,
+        },
+      },
+    });
+    await sfuManager.initialize();
+    logger.info(`🎙️  SFU Manager initialized (provider: ${env.SFU_PROVIDER})`);
+  } catch (error) {
+    logger.error('❌ Failed to initialize SFU Manager:', error);
+    // Continue without SFU - fallback to mesh topology
+    logger.warn('⚠️  Running without SFU (mesh topology will be used for voice)');
+  }
+
   const app = express();
   const httpServer = createServer(app);
 
@@ -38,6 +60,17 @@ async function startServer() {
       methods: ['GET', 'POST'],
       credentials: true,
     },
+    // Enable WebSocket compression for bandwidth optimization
+    perMessageDeflate: {
+      threshold: 1024, // Only compress messages larger than 1KB
+    },
+    // Connection optimization
+    pingTimeout: 60000, // 60 seconds
+    pingInterval: 25000, // 25 seconds
+    // Upgrade timeout
+    upgradeTimeout: 10000, // 10 seconds
+    // Maximum buffer size
+    maxHttpBufferSize: 1e6, // 1MB
   });
 
   // Set up Redis adapter for Socket.IO (enables multi-instance support)
@@ -92,6 +125,13 @@ async function startServer() {
   // Graceful shutdown
   process.on('SIGTERM', async () => {
     logger.info('SIGTERM received, shutting down gracefully...');
+    try {
+      const sfuManager = getSFUManager();
+      await sfuManager.shutdown();
+      logger.info('SFU Manager shutdown successfully');
+    } catch (error) {
+      logger.error('Error shutting down SFU Manager:', error);
+    }
     await redisClient.disconnect();
     httpServer.close(() => {
       logger.info('Server closed');

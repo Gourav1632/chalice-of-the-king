@@ -12,9 +12,9 @@ import {
 } from "../../../shared/logic/gameEngine";
 
 import type { ActionMessage, ItemType, Contestant, GameState } from "../../../shared/types/types";
-import { automatonTakeTurn } from "../../../shared/logic/aiLogic";
 import TutorialPrompt from "../components/GameUI/TutorialPrompt";
 import { useNavigate } from "react-router-dom";
+import { useAiWorker } from "../hooks/useAiWorker";
 
 
 function SinglePlayerMode() {
@@ -28,6 +28,7 @@ function SinglePlayerMode() {
   const [hasMadeTutorialChoice, setHasMadeTutorialChoice] = useState<boolean>(false);
   const [countdown, setCountdown] = useState(9);
   const navigate = useNavigate();
+  const { runAiTurn } = useAiWorker();
 
   useEffect(()=>{
     if(!localStorage.getItem("hasSeenTutorial")) {
@@ -36,6 +37,7 @@ function SinglePlayerMode() {
       setHasMadeTutorialChoice(true);
     }
   },[])
+
 
   const handleCancelTutorial = () => {
     localStorage.setItem("hasSeenTutorial", "true");
@@ -164,6 +166,8 @@ function SinglePlayerMode() {
       }, 10000);
   }, [hasMadeTutorialChoice]);
 
+  
+
 
   function handlePlayerTurn(game:GameState){
     const active = game.players[game.activePlayerIndex];
@@ -207,7 +211,7 @@ function SinglePlayerMode() {
     setCanDrink(true);
   }
 
-  function handleAITurn(game:GameState){
+  async function handleAITurn(game:GameState){
     setCanDrink(false);
     const active = game.players[game.activePlayerIndex];
 
@@ -240,7 +244,7 @@ function SinglePlayerMode() {
       return;
     }
 
-    const {updatedGame,actionMessage} = automatonTakeTurn(game);
+    const {updatedGame,actionMessage} = await runAiTurn(game);
     triggerEvent(actionMessage,5000,()=>{
       setGame(updatedGame);
 

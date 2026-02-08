@@ -11,7 +11,7 @@ class RedisClient {
 
   async connect(): Promise<void> {
     try {
-      // Create Redis client
+      // Create Redis client with connection pooling
       this.client = createClient({
         url: env.REDIS_URL,
         socket: {
@@ -24,7 +24,12 @@ class RedisClient {
             logger.info(`Redis: Reconnecting in ${delay}ms (attempt ${retries + 1}/${this.MAX_RECONNECT_ATTEMPTS})`);
             return delay;
           },
+          // Connection pooling settings
+          keepAlive: true, // Enable TCP keepalive
+          noDelay: true, // Disable Nagle's algorithm for lower latency
         },
+        // Enable automatic pipeline for better performance
+        // commandsQueueMaxLength: 1000,
       });
 
       // Event handlers

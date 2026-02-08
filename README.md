@@ -11,21 +11,21 @@ Chalice of the King is a high-stakes, web-based multiplayer game of **deception*
 
 Each round begins with a known number of poisoned and safe goblets. Your turn, your move:
 
-* **Drink:** Take a calculated risk for potential reward.
-* **Offer:** Pass the goblet — and reveal hidden information about your hand.
-* **Artifacts:** Use special one-time powers to manipulate the round or gather intel.
-* **Victory:** Survive longer than your opponents through deduction, deception, and perfect timing.
+- **Drink:** Take a calculated risk for potential reward.
+- **Offer:** Pass the goblet — and reveal hidden information about your hand.
+- **Artifacts:** Use special one-time powers to manipulate the round or gather intel.
+- **Victory:** Survive longer than your opponents through deduction, deception, and perfect timing.
 
 ---
 
 ## ✨ Features
 
-* 🧠 **Custom AI Opponent** (Single Player Mode)
-* 🌐 **Real-time Multiplayer** (up to 4 players)
-* 🔊 **Built-in Voice Chat** with WebRTC
-* 📜 **Interactive Tutorial** with Shepherd.js
-* 📱 **Fully Responsive**: Works on desktop & mobile
-* 🧰 **Strategic Artifacts** that shift gameplay dynamics
+- 🧠 **Custom AI Opponent** (Single Player Mode)
+- 🌐 **Real-time Multiplayer** (up to 4 players)
+- 🔊 **Built-in Voice Chat** with WebRTC
+- 📜 **Interactive Tutorial** with Shepherd.js
+- 📱 **Fully Responsive**: Works on desktop & mobile
+- 🧰 **Strategic Artifacts** that shift gameplay dynamics
 
 ---
 
@@ -71,14 +71,13 @@ npm install
 
 ### 3. Start Redis (Required)
 
-The backend now uses Redis for distributed state management. Start Redis using Docker:
+The backend uses Redis for distributed state management. Start Redis using Docker:
 
 ```bash
 docker compose -f docker-compose.dev.yml up -d
 ```
 
 **Alternative (without Docker):**
-Install Redis locally:
 - macOS: `brew install redis && brew services start redis`
 - Ubuntu: `sudo apt install redis-server && sudo systemctl start redis`
 - Windows: Use [Windows Subsystem for Linux (WSL)](https://redis.io/docs/getting-started/installation/install-redis-on-windows/)
@@ -106,7 +105,9 @@ cp .env.example .env
 # Terminal 1: Backend
 cd backend
 npm run dev
+```
 
+```bash
 # Terminal 2: Frontend
 cd frontend
 npm run dev
@@ -120,27 +121,56 @@ By default, the frontend runs on `http://localhost:5173` and backend on `http://
 
 ```
 chalice-of-the-king/
-│
 ├── frontend/             # React frontend (Vite + TS)
 │   ├── src/
 │   ├── public/
-│
-├── backend/             # Node.js backend
+├── backend/              # Node.js backend
 │   ├── src/
-│
-├── shared/             # Shared repository for game logic
-│   ├── gameLogic/
-│
+├── shared/               # Shared game logic
 ├── README.md
-└── ...
+```
+
+---
+
+## 🎙️ Voice Chat (Minimal MVP)
+
+### Current Voice Chat
+
+The current implementation uses a **full mesh topology** where each peer connects directly to all others using WebRTC:
+- ✅ Works reliably for 2-4 players
+- ✅ Built-in STUN/TURN servers for NAT traversal
+- ✅ Automatic microphone access handling
+- ✅ Mute/volume control per peer
+
+### SFU Foundation (Optional Future Work)
+
+A simple SFU abstraction layer exists on the backend to support future scaling to 8+ players:
+
+**Files Added:**
+- `backend/src/webrtc/sfuTypes.ts` - Type definitions for SFU abstraction
+- `backend/src/webrtc/sfuManager.ts` - SFU manager (mock implementation)
+- `backend/src/webrtc/index.ts` - Module exports
+
+**Configuration:**
+
+```bash
+# WebRTC SFU Configuration
+SFU_PROVIDER=mock                # Options: mock, livekit, mediasoup
+SFU_ROOM_TTL=0
+
+# LiveKit (for future production use)
+# LIVEKIT_URL=wss://your-workspace.livekit.cloud
+# LIVEKIT_API_KEY=your-api-key
+# LIVEKIT_API_SECRET=your-api-secret
 ```
 
 ---
 
 ## 🧪 Testing
 
-* Multiplayer works best in separate browser windows or tabs.
-* Voice chat requires mic permission.
+- Multiplayer works best in separate browser windows or tabs.
+- Voice chat requires mic permission.
+
 ---
 
 ## 🤝 Contributing
@@ -157,8 +187,8 @@ Contributions are welcome! Here's how:
 
 ## 🚩 Credits
 
-* Game concept inspired by *Buckshot Roulette*
-* Built from scratch by [Gourav Kumar](https://gouravkumar.netlify.app/)
+- Game concept inspired by *Buckshot Roulette*
+- Built from scratch by [Gourav Kumar](https://gouravkumar.netlify.app/)
 
 ---
 

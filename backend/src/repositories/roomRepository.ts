@@ -1,10 +1,11 @@
 import { redisClient } from '../database/redis';
 import { RoomData, PublicRoomData } from '../../../shared/types/types';
 import logger from '../utils/logger';
+import { cacheManager } from '../cache/roomCache';
 
 /**
  * Redis Room Repository
- * Manages room data persistence in Redis with TTL
+ * Manages room data persistence in Redis with TTL and caching
  */
 class RoomRepository {
   private readonly ROOM_PREFIX = 'room:';
@@ -34,6 +35,8 @@ class RoomRepository {
       // If room is public, add to public rooms set
       if (!roomData.isPrivate) {
         await client.sAdd(this.PUBLIC_ROOMS_SET, roomId);
+        // Invalidate cache when room visibility changes
+        await cacheManager.invalidatePublicRooms();
       }
 
       logger.debug(`Room saved to Redis: ${roomId}`);
@@ -83,6 +86,9 @@ class RoomRepository {
       
       // Remove from public rooms set
       await client.sRem(this.PUBLIC_ROOMS_SET, roomId);
+      
+      // Invalidate cache when room is deleted
+      await cacheManager.invalidatePublicRooms();
 
       if (deleted > 0) {
         logger.debug(`Room deleted from Redis: ${roomId}`);
@@ -113,10 +119,16 @@ class RoomRepository {
   }
 
   /**
-   * Get all public rooms
+   * Get all public rooms (with caching)
    */
   async getPublicRooms(): Promise<PublicRoomData[]> {
     try {
+      // Try to get from cache first
+      const cached = await cacheManager.getPublicRooms();
+      if (cached) {
+        return cached;
+      }
+
       const client = redisClient.getClient();
       
       // Get all public room IDs
@@ -148,6 +160,10 @@ class RoomRepository {
       }
 
       logger.debug(`Retrieved ${publicRooms.length} public rooms from Redis`);
+      
+      // Cache the result
+      await cacheManager.setPublicRooms(publicRooms);
+      
       return publicRooms;
     } catch (error) {
       logger.error('Failed to get public rooms from Redis:', error);

@@ -24,7 +24,6 @@ export const useVoiceChat = (
   const [muteMap, setMuteMap] = useState<{ [userId: string]: boolean }>({});
   const [remoteVolume, setRemoteVolume] = useState<{ [userId: string]: number }>({});
 
-
   const createPeer = (userId: string, socket: Socket) => {
     const peer = new RTCPeerConnection({
       iceServers: [
@@ -185,6 +184,7 @@ export const useVoiceChat = (
       Object.values(peersRef.current).forEach((p) => p.close());
       peersRef.current = {};
 
+
       localStreamRef.current?.getTracks().forEach((t) => t.stop());
       localStreamRef.current = null;
 
@@ -202,6 +202,7 @@ export const useVoiceChat = (
       socket.off("voice-user-joined");
       socket.off("leave-voice");
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, roomId, socket]);
 
 
