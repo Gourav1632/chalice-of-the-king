@@ -6,6 +6,7 @@ import { playTurn, initializeGame, startRound } from "../../shared/logic/gameEng
 import { ActionMessage, Contestant, Player, StatusEffect } from "../../shared/types/types";
 import { handlePlayerTurn } from "./rooms/turnManager";
 import { ActionSchema, CreateRoomSchema, JoinRoomSchema } from "./schemas/validation";
+import { getEnv } from "./config/env";
 import logger from "./utils/logger";
 
 const RoomIdSchema = z.string().trim().min(1).max(50);
@@ -42,6 +43,8 @@ const VoiceCandidateSchema = z.object({
 });
 
 export function registerSocketHandlers(io: Server) {
+  const metricsEnabled = getEnv().METRICS_MODE;
+
   connectionManager.setAutoRemoveHandler(async (roomId, playerId, roomData) => {
     io.to(roomId).emit("room_update", roomData ?? null);
 
@@ -495,6 +498,12 @@ export function registerSocketHandlers(io: Server) {
         io.to(to).emit("voice-candidate", { from: socket.id, candidate });
       });
 
+    if (metricsEnabled) {
+      // ===== LATENCY MEASUREMENT: Ping/Pong for Socket.IO RTT =====
+      socket.on("latency_ping", (timestamp: number) => {
+        socket.emit("latency_pong", timestamp);
+      });
+    }
 
     socket.on("disconnecting", async () => {
       logger.info(`⚡ Client disconnected: ${socket.id}`);

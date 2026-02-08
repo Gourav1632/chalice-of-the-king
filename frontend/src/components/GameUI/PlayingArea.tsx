@@ -24,7 +24,6 @@ const PlayingArea = ({room, connectionStates, canStealItem,canDrink,myPlayerId, 
   const [showMusicPopup, setShowMusicPopup] = useState(false);
   const [showScoreboard, setShowScoreboard] = useState(false);
   
-  console.log("[PlayingArea] connectionStates:", connectionStates);
   const [showVoiceSettings, setShowVoiceSettings] = useState(false);
   const [showKickPlayerSettings,setShowKickPlayerSettings] = useState(false);
 
@@ -224,9 +223,6 @@ const PlayerImage = ({
   const isDisconnected = connectionState?.status === 'disconnected';
 
   useEffect(() => {
-    console.log(`[PlayerImage ${player.id}] connectionState:`, connectionState);
-    console.log(`[PlayerImage ${player.id}] isDisconnected:`, isDisconnected);
-    
     if (!isDisconnected || !connectionState?.disconnectedAt) {
       setTimeRemaining(null);
       return;
@@ -236,7 +232,6 @@ const PlayerImage = ({
     const elapsed = Math.floor((Date.now() - connectionState.disconnectedAt) / 1000);
     const remaining = Math.max(0, 60 - elapsed);
     setTimeRemaining(remaining);
-    console.log(`[PlayerImage ${player.id}] Initial time remaining: ${remaining}s`);
 
     const timer = setInterval(() => {
       const elapsed = Math.floor((Date.now() - connectionState.disconnectedAt!) / 1000);

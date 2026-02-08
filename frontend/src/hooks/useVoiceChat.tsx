@@ -23,6 +23,9 @@ export const useVoiceChat = (
   const audioRefs = useRef<Record<string, HTMLAudioElement>>({});
   const [muteMap, setMuteMap] = useState<{ [userId: string]: boolean }>({});
   const [remoteVolume, setRemoteVolume] = useState<{ [userId: string]: number }>({});
+  // ===== WEBRTC LATENCY MEASUREMENT =====
+  const [webrtcStats, setWebrtcStats] = useState<Record<string, { rtt: number; latency: number }>>({});
+  const statsIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const createPeer = (userId: string, socket: Socket) => {
     const peer = new RTCPeerConnection({
@@ -179,8 +182,58 @@ export const useVoiceChat = (
 
     getMediaAndSetup();
 
+    const metricsEnabled = import.meta.env.VITE_METRICS_MODE === "true";
+    if (metricsEnabled) {
+      // ===== WEBRTC STATS COLLECTION: Measure RTT and latency =====
+      statsIntervalRef.current = setInterval(() => {
+        Object.entries(peersRef.current).forEach(async ([userId, peer]) => {
+          if (peer.connectionState === "connected") {
+            try {
+              const stats = await peer.getStats();
+              let selectedPairId: string | undefined;
+
+              stats.forEach((report) => {
+                if (report.type === "transport") {
+                  const transport = report as RTCTransportStats;
+                  if (transport.selectedCandidatePairId) {
+                    selectedPairId = transport.selectedCandidatePairId;
+                  }
+                }
+              });
+
+              const selectedPair = selectedPairId ? stats.get(selectedPairId) : undefined;
+              if (selectedPair && selectedPair.type === "candidate-pair") {
+                const pair = selectedPair as RTCIceCandidatePairStats;
+                let rttMs = 0;
+                if (pair.currentRoundTripTime) {
+                  rttMs = pair.currentRoundTripTime * 1000;
+                } else if (pair.totalRoundTripTime && pair.responsesReceived) {
+                  rttMs = (pair.totalRoundTripTime / pair.responsesReceived) * 1000;
+                }
+
+                if (rttMs > 0) {
+                  const latency = rttMs / 2;
+                  setWebrtcStats((prev) => ({ ...prev, [userId]: { rtt: rttMs, latency } }));
+                  console.log(
+                    `🎙️ WebRTC Stats [${userId}]: RTT=${rttMs.toFixed(2)}ms, Latency=${latency.toFixed(2)}ms`
+                  );
+                }
+              }
+            } catch (err) {
+              console.warn(`Failed to get WebRTC stats for ${userId}:`, err);
+            }
+          }
+        });
+      }, 3000); // Collect stats every 3 seconds
+    }
+
 
     return () => {
+      // Cleanup stats collection
+      if (statsIntervalRef.current) {
+        clearInterval(statsIntervalRef.current);
+      }
+
       Object.values(peersRef.current).forEach((p) => p.close());
       peersRef.current = {};
 
@@ -236,5 +289,6 @@ export const useVoiceChat = (
       setUserMuted,
       remoteVolume,
       setUserVolume,
+      webrtcStats, // ===== WEBRTC LATENCY STATS =====
     };
 };

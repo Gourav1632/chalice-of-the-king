@@ -28,6 +28,7 @@ import {
   getOrCreatePlayerId,
   setStoredRoomId,
 } from "../utils/reconnection";
+import { LatencyMetrics } from "../components/LatencyMetrics";
 
 
 
@@ -188,7 +189,7 @@ const MultiplayerLobby = ({
 
   return (
     <div className="relative flex items-center justify-center w-full min-h-screen overflow-auto">
-
+      <LatencyMetrics />
       <ReconnectingModal isOpen={isReconnecting} />
 
       <ConfirmLeaveModal
