@@ -142,30 +142,6 @@ The current implementation uses a **full mesh topology** where each peer connect
 - ✅ Automatic microphone access handling
 - ✅ Mute/volume control per peer
 
-### SFU Foundation (Optional Future Work)
-
-A simple SFU abstraction layer exists on the backend to support future scaling to 8+ players:
-
-**Files Added:**
-- `backend/src/webrtc/sfuTypes.ts` - Type definitions for SFU abstraction
-- `backend/src/webrtc/sfuManager.ts` - SFU manager (mock implementation)
-- `backend/src/webrtc/index.ts` - Module exports
-
-**Configuration:**
-
-```bash
-# WebRTC SFU Configuration
-SFU_PROVIDER=mock                # Options: mock, livekit, mediasoup
-SFU_ROOM_TTL=0
-
-# LiveKit (for future production use)
-# LIVEKIT_URL=wss://your-workspace.livekit.cloud
-# LIVEKIT_API_KEY=your-api-key
-# LIVEKIT_API_SECRET=your-api-secret
-```
-
----
-
 ## 🧪 Testing
 
 - Multiplayer works best in separate browser windows or tabs.

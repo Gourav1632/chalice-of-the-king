@@ -7,7 +7,6 @@ import { ActionMessage, Contestant, Player, StatusEffect } from "../../shared/ty
 import { handlePlayerTurn } from "./rooms/turnManager";
 import { ActionSchema, CreateRoomSchema, JoinRoomSchema } from "./schemas/validation";
 import logger from "./utils/logger";
-import { getSFUManager } from "./webrtc";
 
 const RoomIdSchema = z.string().trim().min(1).max(50);
 const StartGameSchema = z.object({ roomId: RoomIdSchema });
@@ -40,11 +39,6 @@ const VoiceAnswerSchema = z.object({
 const VoiceCandidateSchema = z.object({
   to: z.string().min(1),
   candidate: z.unknown(),
-});
-// SFU-specific schemas (Phase 4)
-const GetSFUTokenSchema = z.object({
-  roomId: RoomIdSchema,
-  playerName: z.string().min(1).max(50),
 });
 
 export function registerSocketHandlers(io: Server) {
@@ -501,79 +495,12 @@ export function registerSocketHandlers(io: Server) {
         io.to(to).emit("voice-candidate", { from: socket.id, candidate });
       });
 
-      // ✨ Phase 4: SFU Voice Chat Handlers
-      socket.on("get_sfu_token", async (payload) => {
-        const parsed = GetSFUTokenSchema.safeParse(payload);
-        if (!parsed.success) {
-          socket.emit("error", {
-            message: "Invalid get_sfu_token payload.",
-            issues: parsed.error.issues,
-          });
-          return;
-        }
-
-        const { roomId, playerName } = parsed.data;
-        logger.debug(
-          `🎙️ SFU token request: ${socket.id} for room ${roomId}`
-        );
-
-        try {
-          const sfuManager = getSFUManager();
-
-          // Check if SFU room exists, create if not
-          if (!(await sfuManager.roomExists(roomId))) {
-            await sfuManager.createVoiceRoom(roomId);
-            logger.info(`✅ SFU room created: ${roomId}`);
-          }
-
-          // Add participant to SFU room
-          const participant = await sfuManager.addParticipant(
-            roomId,
-            socket.id,
-            playerName
-          );
-
-          // Generate join token
-          const token = await sfuManager.getJoinToken(
-            roomId,
-            socket.id,
-            playerName
-          );
-
-          logger.debug(`🔑 SFU token generated for ${socket.id}`);
-
-          socket.emit("sfu_token", {
-            token,
-            participantId: participant.sfuParticipantId,
-            roomId: participant.sfuParticipantId ? roomId : undefined,
-          });
-        } catch (error) {
-          logger.error("Error generating SFU token:", error);
-          socket.emit("error", {
-            message: "Failed to generate SFU token",
-            error: error instanceof Error ? error.message : String(error),
-          });
-        }
-      });
 
     socket.on("disconnecting", async () => {
       logger.info(`⚡ Client disconnected: ${socket.id}`);
       const rooms = Array.from(socket.rooms).filter((r) => r !== socket.id);
       for (const roomId of rooms) {
         socket.to(roomId).emit('leave-voice', socket.id)
-        
-        // ✨ Phase 4: Clean up SFU participant
-        try {
-          const sfuManager = getSFUManager();
-          if (await sfuManager.roomExists(roomId)) {
-            await sfuManager.removeParticipant(roomId, socket.id);
-            logger.debug(`👋 SFU participant removed: ${socket.id} from ${roomId}`);
-          }
-        } catch (error) {
-          logger.warn(
-            `Error removing SFU participant: ${error instanceof Error ? error.message : String(error)}`
-          );
-        }
         
         const updatedRoom = await connectionManager.handleDisconnect(roomId, socket.id);
         if (updatedRoom) {
