@@ -1,6 +1,3 @@
-// ===== LATENCY METRICS DISPLAY COMPONENT =====
-// Simple component to display Socket.IO and WebRTC latency metrics
-// Add this to any multiplayer screen to monitor latency in real-time
 import { useSocket } from "../contexts/SocketContext";
 import { useLatencyMeasurement } from "../hooks/useLatencyMeasurement";
 
