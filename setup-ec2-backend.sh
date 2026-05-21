@@ -99,11 +99,11 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     
     # Pull images
     echo "📦 Pulling Docker images from GHCR..."
-    docker compose pull
+    docker-compose pull
     
     # Start services
     echo "▶️  Starting services..."
-    docker compose up -d
+    docker-compose up -d
     
     echo ""
     echo "⏳ Waiting for services to start..."
@@ -112,11 +112,11 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     # Show status
     echo ""
     echo "📊 Service Status:"
-    docker compose ps
+    docker-compose ps
     
     echo ""
     echo "📋 Recent Logs:"
-    docker compose logs --tail=30
+    docker-compose logs --tail=30
     
     echo ""
     echo "✅ Deployment complete!"
@@ -131,17 +131,17 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo "   3. Point to IP: ${EC2_IP}"
     echo "   4. Caddy will automatically obtain SSL certificate"
     echo ""
-    echo "📝 View logs: docker compose logs -f"
-    echo "🔄 Restart: docker compose restart"
-    echo "🛑 Stop: docker compose down"
+    echo "📝 View logs: docker-compose logs -f"
+    echo "🔄 Restart: docker-compose restart"
+    echo "🛑 Stop: docker-compose down"
     echo ""
 else
     echo ""
     echo "Deployment skipped. To deploy manually later:"
     echo "  ln -sf docker-compose.backend.yml docker-compose.yml"
     echo "  echo 'YOUR_TOKEN' | docker login ghcr.io -u '${GITHUB_USER}' --password-stdin"
-    echo "  docker compose pull"
-    echo "  docker compose up -d"
+    echo "  docker-compose pull"
+    echo "  docker-compose up -d"
 fi
 
 echo ""
