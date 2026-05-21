@@ -19,7 +19,12 @@ echo ""
 
 read -p "Enter your GitHub Username (default: gourav1632): " GITHUB_USER
 GITHUB_USER=${GITHUB_USER:-gourav1632}
+# Force lowercase for GHCR
+GITHUB_USER=$(echo "$GITHUB_USER" | tr '[:upper:]' '[:lower:]')
 read -s -p "Enter your GitHub Personal Access Token: " GITHUB_TOKEN
+echo ""
+read -p "Enter your Frontend URL for CORS (e.g., https://your-app.vercel.app): " FRONTEND_URL
+FRONTEND_URL=${FRONTEND_URL:-*}
 echo ""
 
 echo ""
@@ -32,7 +37,7 @@ PORT=3001
 LOG_LEVEL=info
 
 # CORS Configuration
-FRONTEND_URL=https://chalice-of-the-king.duckdns.org
+FRONTEND_URL=${FRONTEND_URL}
 
 # Redis Configuration
 REDIS_URL=redis://redis:6379
