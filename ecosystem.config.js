@@ -2,7 +2,7 @@ module.exports = {
   apps: [
     {
       name: 'chalice-backend',
-      script: './backend/dist/index.js',
+      script: './backend/dist/backend/src/index.js',
       instances: 2, // or 'max' for all CPU cores
       exec_mode: 'cluster',
       env: {
