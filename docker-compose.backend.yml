@@ -1,0 +1,79 @@
+services:
+  # Redis service for session storage and Socket.IO adapter
+  redis:
+    image: redis:7-alpine
+    container_name: chalice_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    restart: always
+    networks:
+      - app_network
+
+  # Backend service
+  backend:
+    image: ghcr.io/${GITHUB_USER:-gourav1632}/chalice-backend:latest
+    container_name: chalice_backend
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=${PORT:-3001}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - FRONTEND_URL=${FRONTEND_URL:-https://chalice-of-the-king.duckdns.org}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - RATE_LIMIT_WINDOW_MS=${RATE_LIMIT_WINDOW_MS:-1000}
+      - RATE_LIMIT_MAX_REQUESTS=${RATE_LIMIT_MAX_REQUESTS:-5}
+      - SFU_PROVIDER=${SFU_PROVIDER:-mock}
+    ports:
+      - "3001:3001"
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - backend_logs:/app/logs
+    restart: always
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Caddy Reverse Proxy with Auto SSL
+  caddy:
+    image: caddy:2-alpine
+    container_name: chalice_caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
+    restart: always
+    networks:
+      - app_network
+
+volumes:
+  redis_data:
+    driver: local
+  backend_logs:
+    driver: local
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local
+
+networks:
+  app_network:
+    driver: bridge
