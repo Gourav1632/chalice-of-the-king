@@ -144,18 +144,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
       
-      - name: Build frontend Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./frontend/Dockerfile
-          push: false
-          tags: chalice-frontend:test
-          build-args: |
-            VITE_BACKEND_URL=http://localhost:3001
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-      
+
       - name: Test Docker Compose setup
         run: |
           docker compose -f docker-compose.backend.yml config
